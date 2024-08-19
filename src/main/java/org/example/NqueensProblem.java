@@ -3,8 +3,8 @@ package org.example;
 import java.util.*;
 
 public abstract class NqueensProblem implements java.lang.Runnable {
-    List<List<String>> res;
-
+    //List<List<String>> res;
+    /*List<String> res;
     public List<List<String>> nQueensSolutions(int n) {
         res = Collections.synchronizedList(new ArrayList<>());//Stores all possible solutions
         List<Thread> threads = new ArrayList<>(n);//Creates 'n' threads, one for each possible solution of the problem
@@ -62,10 +62,16 @@ public abstract class NqueensProblem implements java.lang.Runnable {
     }
 
 
-    private void nQueensSolutions(int n, Set<Integer> vertical, Set<Integer> positiveDiag, Set<Integer> negativeDiag,
-                                  int row, List<List<String>> res, List<Integer> solving) {
+    private boolean nQueensSolutions(int n, Set<Integer> vertical, Set<Integer> positiveDiag, Set<Integer> negativeDiag,
+                                  int row, List<String> res, List<Integer> solving) {
         if (row == n) {
-            res.add(stringifySolution(solving, n));
+            synchronized(res){
+                if(res.isEmpty()){
+                    res.addAll(stringifySolution(solving, n));
+                }
+            }
+            return true;
+            //res.add(stringifySolution(solving, n));
         } else { //Checks if column or diagonal is occupied
             for (int col = 0; col < n; col++) {
                 if (vertical.contains(col) || positiveDiag.contains(col + row) || negativeDiag.contains(col - row)) {
@@ -85,6 +91,7 @@ public abstract class NqueensProblem implements java.lang.Runnable {
                 solving.remove(solving.size() - 1);
             }
         }
+        return false;
     }
 
     //Turns the solution into a string to form a chessBoard, placing the queens where they are supposed to be.
@@ -105,10 +112,10 @@ public abstract class NqueensProblem implements java.lang.Runnable {
         return res;
     }
 
-    public static void main(String[] args) {
+    /*public static void main(String[] args) {
         NqueensProblem problem = new NqueensProblemImpl();
-        int n = 4;
-        List<List<String>> solutions = problem.nQueensSolutions(n);
+        int n = 16;
+        List<List<String>> solution = problem.nQueensSolutions(n);
         for (List<String> solution : solutions) {
             for (String row : solution) {
                 System.out.println(row);
@@ -116,6 +123,141 @@ public abstract class NqueensProblem implements java.lang.Runnable {
             System.out.println();
         }
     }
+    public static void main(String[] args){
+        NQueensProblem problem = new NqueensProblemImpl();
+        int n = 4;
+        List<String> solution = problem.nQueensSolutions(n);
+        for(String row : solution){
+            System.out.println(row);
+        }
+    }
+    static class NqueensProblemImpl extends NqueensProblem {
+        @Override
+        public void run() {
+            // This method can be used to run the algorithm in a separate thread if needed
+        }
+    }*/
+    List<String> res;
+
+    public List<String> nQueensSolution(int n) {
+        res = Collections.synchronizedList(new ArrayList<>()); // Armazena apenas uma solução
+        List<Thread> threads = new ArrayList<>(n); // Cria uma thread para a solução
+        for (int i = 0; i < n; i++) {
+            threads.add(new QueensUsingMultiThread(i, n)); // Usa paralelismo para executar as threads
+        }
+        for (Thread t : threads) {
+            t.start();
+        }
+        for (Thread t : threads) { // Aguarda todas as threads serem executadas
+            try {
+                t.join();
+            } catch (Exception e) {
+                System.out.println("Error");
+            }
+        }
+        return res;
+    }
+
+    // This represents an instance of every thread that is going to try to solve the problem
+    //Representa a instância de cada thread que tentará resolver o problema
+    class QueensUsingMultiThread extends Thread {
+        //Criação interfaces
+        Set<Integer> vertical;
+        Set<Integer> positiveDiag; // Row + col
+        Set<Integer> negativeDiag; // Row - col
+        List<Integer> solving;
+        int col;
+        int n;
+
+        QueensUsingMultiThread(int col, int n) {
+
+            //Implementando interfaces
+            vertical = new HashSet<>();
+            positiveDiag = new HashSet<>();
+            negativeDiag = new HashSet<>();
+            solving = new LinkedList<>();
+            this.col = col;
+            this.n = n;
+        }
+
+        // Executed when thread is initialized
+        //Executa quando a thread é inicializada
+        public void run() {
+            try {
+                vertical.add(col);
+                negativeDiag.add(col);
+                positiveDiag.add(col);
+                solving.add(col);
+                nQueensSolution(n, vertical, positiveDiag, negativeDiag, 1, res, solving);
+            } catch (Exception e) {
+                System.out.println("Error");
+            }
+        }
+    }
+
+    private boolean nQueensSolution(int n, Set<Integer> vertical, Set<Integer> positiveDiag, Set<Integer> negativeDiag,
+                                    int row, List<String> res, List<Integer> solving) {
+        //Inicia a tentativa de solução
+        if (row == n) {
+            synchronized (res) {
+                if (res.isEmpty()) {
+                    res.addAll(stringifySolution(solving, n)); //Se está vazio, adiciona a rainha
+                }
+            }
+            return true; // Solution found || Solução encontrada
+        } else {
+            for (int col = 0; col < n; col++) { //Faz isso verificando os lugares livres através das colunas
+                if (vertical.contains(col) || positiveDiag.contains(col + row) || negativeDiag.contains(col - row)) {
+                    continue;
+                }
+
+                //Resolve utilizando backtracking
+                vertical.add(col);
+                negativeDiag.add(col - row); //Adiciona à "Diagonal negativa"
+                positiveDiag.add(col + row); //Adiciona à "Diagonal positiva"
+                solving.add(col);
+                if (nQueensSolution(n, vertical, positiveDiag, negativeDiag, row + 1, res, solving)) {
+                    return true; // Stop as soon as one solution is found //Para quando uma solução é encontrada
+                }
+                //Se não encontrada, remove e tenta a próxima
+                vertical.remove(col);
+                negativeDiag.remove(col - row);
+                positiveDiag.remove(col + row);
+                solving.remove(solving.size() - 1);
+            }
+        }
+        return false; // No solution found in this path //Não foi encontrada uma solução
+    }
+
+
+    //Esta função serve apenas para transformar a solução em uma string
+    private List<String> stringifySolution(List<Integer> solving, int n) {
+        List<String> res = new ArrayList<>();
+        for (int solvingColumn : solving) {
+            StringBuilder stringify = new StringBuilder();
+            for (int i = 0; i < n; i++) {
+                if (i == solvingColumn) {
+                    stringify.append('Q');//Se pode adicionar rainha, insere 'Q'
+                } else {
+                    stringify.append('.');//Se não, insere '.'
+                }
+            }
+            res.add(stringify.toString());
+        }
+        return res;
+    }
+
+
+    //Executa o código inserindo um número arbitrário de rainhas
+    public static void main(String[] args) {
+        NqueensProblem problem = new NqueensProblemImpl();
+        int n = 4;
+        List<String> solution = problem.nQueensSolution(n);
+        for (String row : solution) {
+            System.out.println(row);
+        }
+    }
+
     static class NqueensProblemImpl extends NqueensProblem {
         @Override
         public void run() {
